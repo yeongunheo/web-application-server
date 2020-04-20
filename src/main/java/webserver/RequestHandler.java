@@ -14,6 +14,8 @@ import java.nio.file.Files;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import model.User;
+
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
 
@@ -43,12 +45,40 @@ public class RequestHandler extends Thread {
         		log.debug("header: {}", line);
         	}
 
+        	// 요구사항 2번
+        	String data;
+        	String[] datas;
+        	
+        	if (url.contains("/user/create?")) {
+        		data = url.substring(13, url.length());
+        		log.debug("String: {}", data);
+        		
+        		datas = data.split("&"); 
+        		for(int i=0;i<datas.length;i++) {
+        			log.debug("Datas: {}", datas[i]);
+        		}
+        		
+        		User u = new User(
+        				datas[0].split("=")[1],
+        				datas[1].split("=")[1],
+        				datas[2].split("=")[1],
+        				datas[3].split("=")[1]
+        			);
+        		
+        		log.debug("UserId: {}", u.getUserId());
+        		log.debug("Password: {}", u.getPassword());
+        		log.debug("Name: {}", u.getName());
+        		log.debug("Email: {}", u.getEmail());
+        		
+        	}
+        	else {
+        	
         	DataOutputStream dos = new DataOutputStream(out);
         	File file = new File("./webapp" + url);
         	byte[] body = Files.readAllBytes(file.toPath());
             response200Header(dos, body.length);
             responseBody(dos, body);
-
+        	}
         } catch (IOException e) {
             log.error(e.getMessage());
         }
