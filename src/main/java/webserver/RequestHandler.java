@@ -10,11 +10,13 @@ import java.io.OutputStream;
 import java.io.Reader;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import model.User;
+import util.HttpRequestUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -39,45 +41,36 @@ public class RequestHandler extends Thread {
         	log.debug("request: {}", line);
 
         	String[] tokens = line.split(" ");
-        	String url = tokens[1];
+        	String httpMethod = tokens[0];
+        	String httpURL = tokens[1];
+        	
         	while (!"".equals(line)) {
         		line = br.readLine();
         		log.debug("header: {}", line);
         	}
 
         	// 요구사항 2번
-        	String data;
-        	String[] datas;
-        	
-        	if (url.contains("/user/create?")) {
-        		data = url.substring(13, url.length());
-        		log.debug("String: {}", data);
+        	if (httpURL.contains("/user/create?")) {
+        		int idx = httpURL.indexOf("?");
+        		String params = httpURL.substring(idx+1);
+        		log.debug("params: {}", params);
         		
-        		datas = data.split("&"); 
-        		for(int i=0;i<datas.length;i++) {
-        			log.debug("Datas: {}", datas[i]);
-        		}
+        		Map<String, String> datas = HttpRequestUtils.parseQueryString(params);
+        		User u = new User(datas.get("userId"), datas.get("password"), datas.get("name"), datas.get("email"));
         		
-        		User u = new User(
-        				datas[0].split("=")[1],
-        				datas[1].split("=")[1],
-        				datas[2].split("=")[1],
-        				datas[3].split("=")[1]
-        			);
-        		
-        		log.debug("UserId: {}", u.getUserId());
-        		log.debug("Password: {}", u.getPassword());
-        		log.debug("Name: {}", u.getName());
-        		log.debug("Email: {}", u.getEmail());
+        		log.debug("userId: {}", u.getUserId());
+        		log.debug("password: {}", u.getPassword());
+        		log.debug("name: {}", u.getName());
+        		log.debug("email: {}", u.getEmail());
         		
         	}
-        	else {
         	
-        	DataOutputStream dos = new DataOutputStream(out);
-        	File file = new File("./webapp" + url);
-        	byte[] body = Files.readAllBytes(file.toPath());
-            response200Header(dos, body.length);
-            responseBody(dos, body);
+        	if (!httpURL.contains("/user/create?")) {
+	        	DataOutputStream dos = new DataOutputStream(out);
+	        	File file = new File("./webapp" + httpURL);
+	        	byte[] body = Files.readAllBytes(file.toPath());
+	            response200Header(dos, body.length);
+	            responseBody(dos, body);
         	}
         } catch (IOException e) {
             log.error(e.getMessage());
