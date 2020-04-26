@@ -79,7 +79,10 @@ public class RequestHandler extends Thread {
         		log.debug("password: {}", u.getPassword());
         		log.debug("name: {}", u.getName());
         		log.debug("email: {}", u.getEmail());
-        	
+        		
+        		// 요구사항 4번
+        		DataOutputStream dos = new DataOutputStream(out);
+        		response302Header(dos);
         	}
         	
         	if (!httpURL.contains("/user/create")) {
@@ -103,6 +106,16 @@ public class RequestHandler extends Thread {
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+    
+    private void response302Header(DataOutputStream dos) {
+    	try {
+    		dos.writeBytes("HTTP/1.1 302 Found \r\n");
+    		dos.writeBytes("Location: /index.html\r\n");
+    		dos.writeBytes("\r\n");
+    	} catch (IOException e) {
+    		log.error(e.getMessage());
+    	}
     }
 
     private void responseBody(DataOutputStream dos, byte[] body) {
