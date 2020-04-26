@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import model.User;
 import util.HttpRequestUtils;
+import util.IOUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -43,9 +44,11 @@ public class RequestHandler extends Thread {
         	String[] tokens = line.split(" ");
         	String httpMethod = tokens[0];
         	String httpURL = tokens[1];
+        	int contentLength = 0;
         	
         	while (!"".equals(line)) {
         		line = br.readLine();
+        		if(line.contains("Content-Length:")) contentLength = Integer.parseInt(line.split(" ")[1]);
         		log.debug("header: {}", line);
         	}
 
@@ -64,8 +67,22 @@ public class RequestHandler extends Thread {
         		log.debug("email: {}", u.getEmail());
         		
         	}
+        	// 요구사항 3번
+        	if(httpURL.equals("/user/create")) {
+            	String httpEntity = IOUtils.readData(br, contentLength);
+        		log.debug("POST: {}", httpEntity);
+
+        		Map<String, String> datas = HttpRequestUtils.parseQueryString(httpEntity);
+        		User u = new User(datas.get("userId"), datas.get("password"), datas.get("name"), datas.get("email"));
+        		
+        		log.debug("userId: {}", u.getUserId());
+        		log.debug("password: {}", u.getPassword());
+        		log.debug("name: {}", u.getName());
+        		log.debug("email: {}", u.getEmail());
         	
-        	if (!httpURL.contains("/user/create?")) {
+        	}
+        	
+        	if (!httpURL.contains("/user/create")) {
 	        	DataOutputStream dos = new DataOutputStream(out);
 	        	File file = new File("./webapp" + httpURL);
 	        	byte[] body = Files.readAllBytes(file.toPath());
@@ -96,4 +113,5 @@ public class RequestHandler extends Thread {
             log.error(e.getMessage());
         }
     }
+    
 }
