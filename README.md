@@ -70,3 +70,49 @@ BufferedReader br = new BufferedReader(문자입력스트림);
 DataInputStream dis = new DataInputStream(바이트입력스트림);
 DataOutputStream dos = new DataOutputStream(바이트출력스트림);
 ```
+
+## 요구사항 2 - GET 방식으로 회원가입
+
+### 2.1 HTML 폼(form)
+
+폼은 웹 브라우저에서 입력된 데이터를 한 번에 서버로 전송한다. 전송한 데이터는 웹 서버가 처리하고, 결과에 따라 또 다른 웹 페이지를 보여준다. 폼 태그 속성에는 action, method 등이 있다.
+
+- action : 폼 데이터(form data)를 서버로 보낼 때 해당 데이터가 도착할 URL을 명시한다.
+- method : 폼을 서버에 전송할 http 메서드를 정한다. (GET 또는 POST)
+
+### 2.2 GET 메서드
+
+GET은 가장 흔한 메서드다. 주로 서버에게 리소스를 달라고 요청하기 위해 쓰인다.  
+전송할 http 메서드 종류인 GET과 POST는 브라우저에서 폼 데이터를 가져와 서버로 보내는 똑같은 기능을 수행하지만, 방식은 다르다. GET은 폼 데이터를 URL 끝에 붙여서 눈에 보이게 보내지만 POST 방식은 내부적으로 보이지 않게 보냅니다(= http 메시지 본문에 담아 보낸다).  
+
+> http://localhost:8080/user/create?userId=yeongunheo&password=password&name=YeongUn&email=gjduddns@gmail.com
+
+### 2.3 util.HttpRequestUtils 클래스의 parseQueryString() 메소드
+
+GET 방식을 통해 URL 형태로 넘어온 사용자 정보는 이름=값 형태로 되어있어 Map 객체로 받을 수 있다. 이때 활용되는 것이 바로 util.HttpRequestUtils 클래스의 parseQueryString() 메소드이다.
+
+``` java
+Map<String, String> datas = HttpRequestUtils.parseQueryString(params);
+//params로 들어오는 queryString은 URL에서 ? 이후에 전달되는 field1=value1&field2=value2 형식임
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
