@@ -3,18 +3,23 @@ package webserver;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.net.CookieHandler;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import db.DataBase;
 import model.User;
 import util.HttpRequestUtils;
 import util.IOUtils;
@@ -44,11 +49,13 @@ public class RequestHandler extends Thread {
         	String[] tokens = line.split(" ");
         	String httpMethod = tokens[0];
         	String httpURL = tokens[1];
+        	String cookies = null;
         	int contentLength = 0;
         	
         	while (!"".equals(line)) {
         		line = br.readLine();
         		if(line.contains("Content-Length:")) contentLength = Integer.parseInt(line.split(" ")[1]);
+        		if(line.contains("Cookie:")) cookies = line.split(" ")[1]; 
         		log.debug("header: {}", line);
         	}
 
@@ -82,7 +89,36 @@ public class RequestHandler extends Thread {
         		
         		// 요구사항 4번
         		DataOutputStream dos = new DataOutputStream(out);
-        		response302Header(dos);
+        		response302Header(dos, "/index.html");
+        		
+        		// 요구사항 5번
+        		DataBase.addUser(u);
+        	}
+        	// 요구사항 5번
+        	if(httpURL.equals("/user/login")) {
+        		String httpEntity = IOUtils.readData(br, contentLength);
+        		Map<String, String> datas = HttpRequestUtils.parseQueryString(httpEntity);
+        		String userId = datas.get("userId");
+        		String password = datas.get("password");
+        		
+        		User tempUser = DataBase.findUserById(userId);
+        		if(tempUser == null) {
+            		DataOutputStream dos = new DataOutputStream(out);
+            		String url = "/user/login_failed.html";
+            		responseLoginFailedHeader(dos, url);
+        		}
+        		if(tempUser != null) {
+        			if (userId.equals(tempUser.getUserId()) && password.equals(tempUser.getPassword())) {
+            			DataOutputStream dos = new DataOutputStream(out);
+            			String url = "/index.html";
+            			responseLoginSuccessHeader(dos, url);	
+            		}
+            		if (!(userId.equals(tempUser.getUserId()) && password.equals(tempUser.getPassword()))) {
+            			DataOutputStream dos = new DataOutputStream(out);
+            			String url = "/user/login_failed.html";
+            			responseLoginFailedHeader(dos, url);
+            		}
+        		}
         	}
         	
         	if (!httpURL.contains("/user/create")) {
@@ -108,16 +144,38 @@ public class RequestHandler extends Thread {
         }
     }
     
-    private void response302Header(DataOutputStream dos) {
+    private void response302Header(DataOutputStream dos, String url) {
     	try {
     		dos.writeBytes("HTTP/1.1 302 Found \r\n");
-    		dos.writeBytes("Location: /index.html\r\n");
+    		dos.writeBytes("Location: " + url + "\r\n");
     		dos.writeBytes("\r\n");
     	} catch (IOException e) {
     		log.error(e.getMessage());
     	}
     }
 
+    private void responseLoginSuccessHeader(DataOutputStream dos, String url) {
+    	try {
+    		dos.writeBytes("HTTP/1.1 302 Found \r\n");
+    		dos.writeBytes("Location: " + url + "\r\n");
+    		dos.writeBytes("Set-Cookie: logined=true\r\n");
+    		dos.writeBytes("\r\n");
+    	} catch (IOException e) {
+    		log.error(e.getMessage());
+    	}
+    }
+
+    private void responseLoginFailedHeader(DataOutputStream dos, String url) {
+    	try {
+    		dos.writeBytes("HTTP/1.1 302 Found \r\n");
+    		dos.writeBytes("Location: " + url + "\r\n");
+    		dos.writeBytes("Set-Cookie: logined=false\r\n");
+    		dos.writeBytes("\r\n");
+    	} catch (IOException e) {
+    		log.error(e.getMessage());
+    	}
+    }
+    
     private void responseBody(DataOutputStream dos, byte[] body) {
         try {
             dos.write(body, 0, body.length);
