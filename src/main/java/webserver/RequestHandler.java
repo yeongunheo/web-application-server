@@ -50,7 +50,11 @@ public class RequestHandler extends Thread {
         	String httpMethod = tokens[0];
         	String httpURL = tokens[1];
         	String cookies = null;
+        	String contentType = null;
         	int contentLength = 0;
+        	
+        	if(httpURL.contains("css")) contentType = "text/css";
+        	if(!httpURL.contains("css")) contentType = "text/html";
         	
         	while (!"".equals(line)) {
         		line = br.readLine();
@@ -165,7 +169,7 @@ public class RequestHandler extends Thread {
         			
         			DataOutputStream dos = new DataOutputStream(out);
         			byte[] body = sb.toString().getBytes();
-        			response200Header(dos, body.length);
+        			response200Header(dos, body.length, contentType);
     	            responseBody(dos, body);
         		}
         		if(!Boolean.parseBoolean(cookieList.get("logined"))) { // 쿠키값이 false일 경우
@@ -178,7 +182,7 @@ public class RequestHandler extends Thread {
 	        	DataOutputStream dos = new DataOutputStream(out);
 	        	File file = new File("./webapp" + httpURL);
 	        	byte[] body = Files.readAllBytes(file.toPath());
-	            response200Header(dos, body.length);
+	            response200Header(dos, body.length, contentType);
 	            responseBody(dos, body);
         	}
         } catch (IOException e) {
@@ -186,10 +190,10 @@ public class RequestHandler extends Thread {
         }
     }
 
-    private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
+    private void response200Header(DataOutputStream dos, int lengthOfBodyContent, String contentType) {
         try {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
-            dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
+            dos.writeBytes("Content-Type: " + contentType + ";charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
