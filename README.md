@@ -96,23 +96,33 @@ Map<String, String> datas = HttpRequestUtils.parseQueryString(params);
 //params로 들어오는 queryString은 URL에서 ? 이후에 전달되는 field1=value1&field2=value2 형식임
 ```
 
+## 요구사항 3 - POST 방식으로 회원가입
 
+### 3.1 POST 메서드
 
+POST로 데이터를 전달할 경우 전달하는 데이터는 HTTP 본문에 담긴다. 이 때 본문에 전달되는 데이터는 GET 방식으로 데이터를 전달할 때(이름=값 형태)와 같다.
 
+---
 
+### Issue timeline
 
+#### 1. 본문 메시지를 처리할 때 `br.readline()`을 사용했더니 데이터를 전달하는 과정에서 무한 루프가 발생하였다.
+=> HTTP 프로토콜에서 본문의 메시지 끝부분에는 /r/n가 없다. 그렇기 때문에 문장 끝의 /r/n를 인식해서 한 줄씩 입력을 받는 `br.readline()`은 사용할 수 없다. 대신 util.IOUtils 클래스의 readData() 메소드를 활용해 HTTP 헤더의 Content-Length의 값을 매개값으로 전달하여 처리할 수 있다.
+```java
+String httpEntity = IOUtils.readData(br, contentLength);
+```
 
+## 요구사항 4 - 302 status code 적용
 
+### 4.1 HTTP 302 status code (리다이렉션 상태 코드)
 
+리다이렉션 상태 코드는 클라이언트가 관심있어 하는 리소스에 대해 다른 위치를 사용하라고 말해주거나 그 리소스의 내용 대신 다른 대안 응답을 제공한다. 만약 리소스가 옮겨졌다면, 클라이언트에게 리소스가 옮겨졌으며 어디서 찾을 수 있는지 알려주기 위해 리다이렉션 상태 코드와 Location 헤더를 보낼 수 있다. 이는 브라우저가 사용자를 귀찮게 하지 않고 알아서 새 위치로 이동할 수 있게 해준다.
 
+ - HTTP 302 리다이렉션 코드 예시 (응답 메시지)   
+ <br/>   
+ 
+|HTTP/1.0 302 Found|
+|---------------|
+|Location: /index.html|
 
-
-
-
-
-
-
-
-
-
-
+리다이렉션 코드를 응답받은 웹 브라우저는 Location 헤더의 URL을 읽어 GET 방식으로 다시 웹서버로 요청한다. 301 상태 코드와의 차이점은 클라이언트가 Location 헤더로 주어진 URL을 리소스를 임시로 가리키기 위한 목적으로 사용해야 한다는 것이다. 이후의 요청에서는 원래의 URL을 사용해야 한다.
