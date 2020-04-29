@@ -120,6 +120,59 @@ public class RequestHandler extends Thread {
             		}
         		}
         	}
+        	// 요구사항 6번
+        	if (httpURL.equals("/user/list")) {
+        		Map<String, String> cookieList = HttpRequestUtils.parseCookies(cookies);
+        		log.debug("cookies: {}", cookieList.get("logined"));
+        		if(Boolean.parseBoolean(cookieList.get("logined"))) { // 쿠키값이 true일 경우
+        			StringBuilder sb = new StringBuilder();
+        			sb.append("<!DOCTYPE html>\n");
+        			sb.append("<html lang=\"kr\">\n");
+        			sb.append("<head>\n");
+        			sb.append("</head>\n");
+        			sb.append("<body>\n");
+        			
+        			sb.append("<table>\n");
+                    sb.append("<thead>\n");
+                    sb.append("<tr>\n");
+                    sb.append("<th>사용자 아이디</th> <th>이름</th> <th>이메일</th>\n");
+                    sb.append("</tr>\n");
+                    sb.append("</thead>\n");
+                    sb.append("<tbody>\n");
+            
+                    Collection<User> users = DataBase.findAll();
+                    Iterator<User> it = users.iterator();
+                    
+                    while(it.hasNext()) {
+                    	User u = it.next();
+                    	sb.append("<tr>");
+                    	sb.append("<td>");
+                        sb.append(u.getUserId());
+                        sb.append("</td> ");
+                        sb.append("<td>");
+                        sb.append(u.getName());
+                        sb.append("</td> ");
+                        sb.append("<td>");
+                        sb.append(u.getEmail());
+                        sb.append("</td>\n");
+                        sb.append("</tr>");
+                    }
+
+                    sb.append("</tbody>\n");
+                    sb.append("</table>\n");
+        			sb.append("</body>\n");
+        			sb.append("</html>\n");
+        			
+        			DataOutputStream dos = new DataOutputStream(out);
+        			byte[] body = sb.toString().getBytes();
+        			response200Header(dos, body.length);
+    	            responseBody(dos, body);
+        		}
+        		if(!Boolean.parseBoolean(cookieList.get("logined"))) { // 쿠키값이 false일 경우
+        			DataOutputStream dos = new DataOutputStream(out);
+        			response302Header(dos, "/user/login.html");
+        		}
+        	}
         	
         	if (!httpURL.contains("/user/create")) {
 	        	DataOutputStream dos = new DataOutputStream(out);
