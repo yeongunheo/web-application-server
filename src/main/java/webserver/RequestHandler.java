@@ -1,19 +1,13 @@
 package webserver;
 
-import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.Reader;
-import java.net.CookieHandler;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -22,7 +16,6 @@ import org.slf4j.LoggerFactory;
 import db.DataBase;
 import model.User;
 import util.HttpRequestUtils;
-import util.IOUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -39,161 +32,110 @@ public class RequestHandler extends Thread {
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
-        	Reader reader = new InputStreamReader(in);
-        	BufferedReader br = new BufferedReader(reader);
+        	HttpRequest request = new HttpRequest(in);
+        	String path = getDefaultPath(request.getPath());
         	
-        	String line = br.readLine();
-        	if (line == null) { return; }
-        	log.debug("request: {}", line);
-
-        	String[] tokens = line.split(" ");
-        	String httpMethod = tokens[0];
-        	String httpURL = tokens[1];
-        	String cookies = null;
-        	String contentType = null;
-        	int contentLength = 0;
-        	
-        	if(httpURL.contains("css")) contentType = "text/css";
-        	if(!httpURL.contains("css")) contentType = "text/html";
-        	
-        	while (!"".equals(line)) {
-        		line = br.readLine();
-        		if(line.contains("Content-Length:")) contentLength = Integer.parseInt(line.split(" ")[1]);
-        		if(line.contains("Cookie:")) cookies = line.split(" ")[1]; 
-        		log.debug("header: {}", line);
-        	}
-
-        	// 요구사항 2번
-        	if (httpURL.contains("/user/create?")) {
-        		int idx = httpURL.indexOf("?");
-        		String params = httpURL.substring(idx+1);
-        		log.debug("params: {}", params);
-        		
-        		Map<String, String> datas = HttpRequestUtils.parseQueryString(params);
-        		User u = new User(datas.get("userId"), datas.get("password"), datas.get("name"), datas.get("email"));
-        		
-        		log.debug("userId: {}", u.getUserId());
-        		log.debug("password: {}", u.getPassword());
-        		log.debug("name: {}", u.getName());
-        		log.debug("email: {}", u.getEmail());
-        		
-        	}
-        	// 요구사항 3번
-        	if(httpURL.equals("/user/create")) {
-            	String httpEntity = IOUtils.readData(br, contentLength);
-        		log.debug("POST: {}", httpEntity);
-
-        		Map<String, String> datas = HttpRequestUtils.parseQueryString(httpEntity);
-        		User u = new User(datas.get("userId"), datas.get("password"), datas.get("name"), datas.get("email"));
-        		
-        		log.debug("userId: {}", u.getUserId());
-        		log.debug("password: {}", u.getPassword());
-        		log.debug("name: {}", u.getName());
-        		log.debug("email: {}", u.getEmail());
-        		
-        		// 요구사항 4번
+        	if ("/user/create".equals(path)) {
+        		User user = new User(
+        				request.getParameter("userId"),
+        				request.getParameter("password"),
+        				request.getParameter("name"),
+        				request.getParameter("email"));
+        		log.debug("User : {}", user);
         		DataOutputStream dos = new DataOutputStream(out);
         		response302Header(dos, "/index.html");
-        		
-        		// 요구사항 5번
-        		DataBase.addUser(u);
-        	}
-        	// 요구사항 5번
-        	if(httpURL.equals("/user/login")) {
-        		String httpEntity = IOUtils.readData(br, contentLength);
-        		Map<String, String> datas = HttpRequestUtils.parseQueryString(httpEntity);
-        		String userId = datas.get("userId");
-        		String password = datas.get("password");
-        		
-        		User tempUser = DataBase.findUserById(userId);
-        		if(tempUser == null) {
-            		DataOutputStream dos = new DataOutputStream(out);
-            		String url = "/user/login_failed.html";
-            		responseLoginFailedHeader(dos, url);
-        		}
-        		if(tempUser != null) {
-        			if (userId.equals(tempUser.getUserId()) && password.equals(tempUser.getPassword())) {
-            			DataOutputStream dos = new DataOutputStream(out);
-            			String url = "/index.html";
-            			responseLoginSuccessHeader(dos, url);	
-            		}
-            		if (!(userId.equals(tempUser.getUserId()) && password.equals(tempUser.getPassword()))) {
-            			DataOutputStream dos = new DataOutputStream(out);
-            			String url = "/user/login_failed.html";
-            			responseLoginFailedHeader(dos, url);
-            		}
-        		}
-        	}
-        	// 요구사항 6번
-        	if (httpURL.equals("/user/list")) {
-        		Map<String, String> cookieList = HttpRequestUtils.parseCookies(cookies);
-        		log.debug("cookies: {}", cookieList.get("logined"));
-        		if(Boolean.parseBoolean(cookieList.get("logined"))) { // 쿠키값이 true일 경우
-        			StringBuilder sb = new StringBuilder();
-        			sb.append("<!DOCTYPE html>\n");
-        			sb.append("<html lang=\"kr\">\n");
-        			sb.append("<head>\n");
-        			sb.append("</head>\n");
-        			sb.append("<body>\n");
-        			
-        			sb.append("<table>\n");
-                    sb.append("<thead>\n");
-                    sb.append("<tr>\n");
-                    sb.append("<th>사용자 아이디</th> <th>이름</th> <th>이메일</th>\n");
-                    sb.append("</tr>\n");
-                    sb.append("</thead>\n");
-                    sb.append("<tbody>\n");
-            
-                    Collection<User> users = DataBase.findAll();
-                    Iterator<User> it = users.iterator();
-                    
-                    while(it.hasNext()) {
-                    	User u = it.next();
-                    	sb.append("<tr>");
-                    	sb.append("<td>");
-                        sb.append(u.getUserId());
-                        sb.append("</td> ");
-                        sb.append("<td>");
-                        sb.append(u.getName());
-                        sb.append("</td> ");
-                        sb.append("<td>");
-                        sb.append(u.getEmail());
-                        sb.append("</td>\n");
-                        sb.append("</tr>");
-                    }
 
-                    sb.append("</tbody>\n");
-                    sb.append("</table>\n");
-        			sb.append("</body>\n");
-        			sb.append("</html>\n");
-        			
-        			DataOutputStream dos = new DataOutputStream(out);
-        			byte[] body = sb.toString().getBytes();
-        			response200Header(dos, body.length, contentType);
-    	            responseBody(dos, body);
-        		}
-        		if(!Boolean.parseBoolean(cookieList.get("logined"))) { // 쿠키값이 false일 경우
-        			DataOutputStream dos = new DataOutputStream(out);
-        			response302Header(dos, "/user/login.html");
-        		}
+        		DataBase.addUser(user);
         	}
-        	
-        	if (!httpURL.contains("/user/create")) {
-	        	DataOutputStream dos = new DataOutputStream(out);
-	        	File file = new File("./webapp" + httpURL);
-	        	byte[] body = Files.readAllBytes(file.toPath());
-	            response200Header(dos, body.length, contentType);
-	            responseBody(dos, body);
+        	else if("/user/login".equals(path)) {
+        		User user = DataBase.findUserById(
+        				request.getParameter("userId"));
+        		
+        		if (user == null) {
+        			responseResource(out, "user/login_failed.html");
+        			return;
+        		}
+        		if (user.getPassword().equals(request.getParameter("password"))) {
+        			DataOutputStream dos = new DataOutputStream(out);
+            		response302LoginSuccessHeader(dos);
+        		}
+        	} else if ("/user/list".equals(path)) {
+        		if (!isLogin(request.getHeader("Cookie"))) {
+        			responseResource(out, "/user/login.html");
+        			return;
+        		}
+        		Collection<User> users = DataBase.findAll();
+        		StringBuilder sb = new StringBuilder();
+        		sb.append("<table border='1'>");
+        		for (User user : users) {
+        			sb.append("<tr>");
+        			sb.append("<td>" + user.getUserId() + "</td>");
+        			sb.append("<td>" + user.getName() + "</td>");
+        			sb.append("<td>" + user.getEmail() + "</td>");
+        			sb.append("</tr>");
+        		}
+        		sb.append("</table>");
+        		byte[] body = sb.toString().getBytes();
+        		DataOutputStream dos = new DataOutputStream(out);
+        		response200Header(dos, body.length);
+        		responseBody(dos, body);
+        	} else if (path.endsWith(".css")) {
+        		responseCssResource(out, path);
+        	} else {
+        		responseResource(out, path);
         	}
         } catch (IOException e) {
             log.error(e.getMessage());
         }
     }
 
-    private void response200Header(DataOutputStream dos, int lengthOfBodyContent, String contentType) {
+    private String getDefaultPath(String path) {
+    	if (path.equals("/")) {
+    		return "/index.html";
+    	}
+    	return path;
+    }
+    
+    private void response302LoginSuccessHeader(DataOutputStream dos) {
+    	try {
+    		dos.writeBytes("HTTP/1.1 302 Found \r\n");
+    		dos.writeBytes("Set-Cookie: logined=true \r\n");
+    		dos.writeBytes("Location: /index.html \r\n");
+    		dos.writeBytes("\r\n");
+    	} catch (IOException e) {
+    		log.error(e.getMessage());
+    	}
+	}
+
+	private void responseResource(OutputStream out, String url) throws IOException {
+		DataOutputStream dos = new DataOutputStream(out);
+    	byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
+    	response200Header(dos, body.length);
+    	responseBody(dos, body);
+	}
+
+	private void responseCssResource(OutputStream out, String url) throws IOException {
+		DataOutputStream dos = new DataOutputStream(out);
+		byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
+		response200CssHeader(dos, body.length);
+		responseBody(dos, body);
+	}
+
+	private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
         try {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
-            dos.writeBytes("Content-Type: " + contentType + ";charset=utf-8\r\n");
+            dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
+            dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+    
+    private void response200CssHeader(DataOutputStream dos, int lengthOfBodyContent) {
+    	try {
+            dos.writeBytes("HTTP/1.1 200 OK \r\n");
+            dos.writeBytes("Content-Type: text/css\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
@@ -211,26 +153,13 @@ public class RequestHandler extends Thread {
     	}
     }
 
-    private void responseLoginSuccessHeader(DataOutputStream dos, String url) {
-    	try {
-    		dos.writeBytes("HTTP/1.1 302 Found \r\n");
-    		dos.writeBytes("Location: " + url + "\r\n");
-    		dos.writeBytes("Set-Cookie: logined=true\r\n");
-    		dos.writeBytes("\r\n");
-    	} catch (IOException e) {
-    		log.error(e.getMessage());
+    private boolean isLogin(String cookieValue) {
+    	Map<String, String> cookies = HttpRequestUtils.parseCookies(cookieValue);
+    	String value = cookies.get("logined");
+    	if (value == null) {
+    		return false;
     	}
-    }
-
-    private void responseLoginFailedHeader(DataOutputStream dos, String url) {
-    	try {
-    		dos.writeBytes("HTTP/1.1 302 Found \r\n");
-    		dos.writeBytes("Location: " + url + "\r\n");
-    		dos.writeBytes("Set-Cookie: logined=false\r\n");
-    		dos.writeBytes("\r\n");
-    	} catch (IOException e) {
-    		log.error(e.getMessage());
-    	}
+    	return Boolean.parseBoolean(value);
     }
     
     private void responseBody(DataOutputStream dos, byte[] body) {
